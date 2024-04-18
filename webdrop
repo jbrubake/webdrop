@@ -74,6 +74,7 @@ shift $((OPTIND - 1))
 # Functions {{{1
 #
 have() { command -v "$1" >/dev/null; }
+error() { printf "%s\n" "$1" >&2; exit 1; }
 
 set_headers() {
     id_header=$id_tag$1
@@ -108,7 +109,7 @@ load() {
     id=$(rand $$)
     set_headers "$id"
 
-    fifo=$(mktemp webdrop.XXXXXX)
+    fifo=$(mktemp -u webdrop.XXXXXX)
     trap 'rm -f "$fifo"; trap - EXIT; exit' EXIT INT HUP TERM
     mkfifo -m 600 "$fifo"
 
