@@ -231,7 +231,7 @@ unload() {
 
     # Clean up
     case $remote in
-        yes) ssh -p "$port" "$host" "> $remote_log" ;;
+        yes) ssh -p "$port" "$host" ": | sudo tee $remote_log" ;;
         no)  > "$log" ;;
     esac
 }
