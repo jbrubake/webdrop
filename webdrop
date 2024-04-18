@@ -17,16 +17,15 @@
 #
 # abstract: use a web server as a digital dead drop
 #
-# TODO: use the -w option to base64 to limit line length *or*
-# TODO: make a giant string that you can randomly chop up
-#
-# TODO: send the data out over time, randomly
+# TODO: add option to randomize line length
 #
 # Defaults {{{1
 #
 ID_TAG_DFLT=?webdrop=
 HASH_TAG_DFLT=?hash=
 MSG_TAG_DFLT=?msg=
+DFLT_WRAP=76
+DFLT_RANDOM=0
 
 # Documentation {{{1
 #
@@ -82,7 +81,21 @@ set_headers() {
     msg_header=$id_header$msg_tag
 }
 
-function load() {
+rand() { awk -v max="$1" 'BEGIN {srand(); print int(max*rand()+1)}'; }
+
+load() {
+    wrap=$DFLT_WRAP
+    random=$DFLT_RANDOM
+
+    while getopts ':r:w:h' opt; do
+        case $opt in
+            r) random=$OPTARG ;;
+            w) wrap=$OPTARG ;;
+            h|?) print_help; exit ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
     url=$1
     if [ -z "$url" ]; then
         printf '%s\n' "No url given" >&2
@@ -92,7 +105,7 @@ function load() {
     shift
 
     # Use $$ as the message id
-    id=$$
+    id=$(rand $$)
     set_headers "$id"
 
     fifo=$(mktemp webdrop.XXXXXX)
@@ -101,8 +114,9 @@ function load() {
 
     curl -s "$url$id_header" >/dev/null
     curl -s "$url$hash_header$(<&0 tee "$fifo" | md5sum | cut -d' ' -f1)" >/dev/null &
-    for line in $(base64 "$fifo"); do
+    for line in $(base64 -w"$wrap" "$fifo"); do
         curl -s "$url$msg_header$line" >/dev/null
+        [ "$random" -gt 0 ] && sleep $(rand "$random")
     done
 
     printf 'Message loaded. ID = %s\n' "$id"
