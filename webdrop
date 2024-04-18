@@ -23,6 +23,7 @@
 #
 ID_TAG_DFLT=?webdrop=
 MSG_TAG_DFLT=?msg=
+FILENAME_TAG_DFLT=?name=
 DFLT_WRAP=76
 DFLT_RANDOM=0
 # Documentation {{{1
@@ -59,6 +60,7 @@ EOF
 #
 id_tag=$ID_TAG_DFLT
 msg_tag=$MSG_TAG_DFLT
+filename_tag=$FILENAME_TAG_DFLT
 
 while getopts ':vh' opt; do
     case $opt in
@@ -75,10 +77,32 @@ error() { printf "%s\n" "$1" >&2; exit 1; }
 
 set_headers() {
     id_header=$id_tag$1
+    filename_header=$id_header$filename_tag
     msg_header=$id_header$msg_tag
 }
 
 rand() { awk -v max="$1" 'BEGIN {srand(); print int(max*rand()+1)}'; }
+
+send() {
+    file=$1
+
+    if [ "$file" = "-" ]; then
+        [ -r /dev/stdin ] || error "/dev/stdin is required"
+        file=/dev/stdin
+    fi
+
+    id=$(rand $$)
+    set_headers "$id"
+
+    curl -s "$url$id_header" >/dev/null
+    curl -s "$url$filename_header$file" >/dev/null
+    for line in $(mcrypt -q <$file | base64 -w"$wrap"); do
+        curl -s "$url$msg_header$line" >/dev/null
+        [ "$random" -gt 0 ] && sleep $(rand "$random")
+    done
+
+    printf '%s loaded. ID = %s\n' "$file" "$id"
+}
 
 load() {
     for b in curl; do
@@ -105,17 +129,8 @@ load() {
     fi
     shift
 
-    # Use $$ as the message id
-    id=$(rand $$)
-    set_headers "$id"
-
-    curl -s "$url$id_header" >/dev/null
-    for line in $(mcrypt | base64 -w"$wrap"); do
-        curl -s "$url$msg_header$line" >/dev/null
-        [ "$random" -gt 0 ] && sleep $(rand "$random")
-    done
-
-    printf 'Message loaded. ID = %s\n' "$id"
+    [ "$#" = 0 ] && set -- -
+    for f in $@; do send "$f"; done
 }
 
 unload() {
@@ -153,7 +168,7 @@ unload() {
         log=$(mktemp --tmpdir webdrop.XXXXXXXX)
         trap 'rm -f "$log"; trap - EXIT; exit' EXIT INT HUP TERM
 
-        scp -vP "$port" "$host:$remote_log" "$log"
+        scp -qP "$port" "$host:$remote_log" "$log"
 
     # otherwise it's local
     else
@@ -166,9 +181,19 @@ unload() {
     for id in $(grep "GET /$id_header[[:digit:]][[:digit:]]* " "$log" | cut -d' ' -f7 | sed "s/.*$id_header//"); do
         set_headers "$id"
 
-        # Print message id and contents
-        printf 'id = %s\n' "$id"
-        grep "GET /$msg_header" "$log" | cut -d' ' -f7 | sed "s/.*$msg_header//" | base64 -d |  mcrypt -d > "$dir/$id.msg"
+        # Get filename
+        file=$(grep "$filename_header" "$log" | cut -d' ' -f7 | sed "s/.*$filename_header//")
+
+        # Print filename and id
+        printf '%s (id = %s)\n' "$file" "$id"
+        # Get a usable filename
+        if [ "$file" = '/dev/stdin' ]; then
+            file=stdin
+        else
+            file=$(basename "$file")
+        fi
+        # Get and save file contents
+        grep "GET /$msg_header" "$log" | cut -d' ' -f7 | sed "s/.*$msg_header//" | base64 -d |  mcrypt -qd > "$dir/$file"
 
     done
 
