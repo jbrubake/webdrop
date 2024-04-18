@@ -95,7 +95,8 @@ function load() {
     id=$$
     set_headers "$id"
 
-    fifo=$$.fifo
+    fifo=$(mktemp webdrop.XXXXXX)
+    trap 'rm -f "$fifo"; trap - EXIT; exit' EXIT INT HUP TERM
     mkfifo -m 600 "$fifo"
 
     curl -s "$url$id_header" >/dev/null
@@ -118,6 +119,9 @@ function unload() {
     fi
     shift
 
+    logtmp=$(mktemp webdrop.XXXXXXXX)
+    trap 'rm -f "$logtmp"; trap - EXIT; exit' EXIT INT HUP TERM
+
     # Find all message ids
     set_headers ""
 
@@ -129,8 +133,8 @@ function unload() {
         grep "GET /$msg_header" "$log" | cut -d' ' -f7 | sed "s/.*$msg_header//" | base64 -d > "$id.msg"
 
         # Delete message from log
-        # FIXME: This prevents further writes to the log. Probably a file handling changing problem
-        #sed -i "/GET \/$id_header/d" "$log"
+        sed "/GET \/$id_header/d" "$log" > "$logtmp"; cat "$logtmp" > "$log"
+        rm "$logtmp"
     done
 }
 
