@@ -110,7 +110,18 @@ function load() {
     rm "$fifo"
 }
 
-function unload() {
+unload() {
+    dir=.
+    while getopts ':d:h' opt; do
+        case $opt in
+            d) dir=$OPTARG ;;
+            h|?) print_help; exit ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    ! [ -d "$dir" ] && mkdir -p "$dir"
+
     log=$1
     if [ -z "$log" ]; then
         printf '%s\n' "No logfile given" >&2
@@ -130,7 +141,7 @@ function unload() {
 
         # Print message id, hash and contents
         printf 'id = %s, hash = %s\n' "$id" "$(grep "$hash_header" "$log" | cut -d' ' -f7 | sed "s/.*$hash_header//")"
-        grep "GET /$msg_header" "$log" | cut -d' ' -f7 | sed "s/.*$msg_header//" | base64 -d > "$id.msg"
+        grep "GET /$msg_header" "$log" | cut -d' ' -f7 | sed "s/.*$msg_header//" | base64 -d > "$dir/$id.msg"
 
         # Delete message from log
         sed "/GET \/$id_header/d" "$log" > "$logtmp"; cat "$logtmp" > "$log"
