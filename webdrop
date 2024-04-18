@@ -127,8 +127,10 @@ load() {
 
 unload() {
     dir=.
-    while getopts ':d:h' opt; do
+    port=22
+    while getopts ':p:d:h' opt; do
         case $opt in
+            p) port=$OPTARG ;;
             d) dir=$OPTARG ;;
             h|?) print_help; exit ;;
         esac
@@ -145,8 +147,21 @@ unload() {
     fi
     shift
 
-    logtmp=$(mktemp --tmpdir webdrop.XXXXXXXX)
-    trap 'rm -f "$logtmp"; trap - EXIT; exit' EXIT INT HUP TERM
+    # If $log contains a colon, then it is a remote logfile
+    if [ "${log#*:}" != "$log" ]; then
+        remote=yes
+        host=${log%%:*}
+        remote_log=${log#*:}
+
+        log=$(mktemp --tmpdir webdrop.XXXXXXXX)
+        trap 'rm -f "$log"; trap - EXIT; exit' EXIT INT HUP TERM
+
+        scp -P "$port" "$host:$remote_log" "$log"
+
+    # otherwise it's local
+    else
+        remote=no
+    fi
 
     # Find all message ids
     set_headers ""
@@ -162,6 +177,12 @@ unload() {
         sed "/GET \/$id_header/d" "$log" > "$logtmp"; cat "$logtmp" > "$log"
         rm "$logtmp"
     done
+
+    # Clean up
+    case $remote in
+        yes) ssh -p "$port" "$host" "> $remote_log" ;;
+        no)  > "$log" ;;
+    esac
 }
 
 # Main {{{1
