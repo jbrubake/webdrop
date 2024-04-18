@@ -22,11 +22,9 @@
 # Defaults {{{1
 #
 ID_TAG_DFLT=?webdrop=
-HASH_TAG_DFLT=?hash=
 MSG_TAG_DFLT=?msg=
 DFLT_WRAP=76
 DFLT_RANDOM=0
-
 # Documentation {{{1
 #
 VERSION='1.0'
@@ -60,7 +58,6 @@ EOF
 # Process options {{{1
 #
 id_tag=$ID_TAG_DFLT
-hash_tag=$HASH_TAG_DFLT
 msg_tag=$MSG_TAG_DFLT
 
 while getopts ':vh' opt; do
@@ -78,13 +75,16 @@ error() { printf "%s\n" "$1" >&2; exit 1; }
 
 set_headers() {
     id_header=$id_tag$1
-    hash_header=$id_header$hash_tag
     msg_header=$id_header$msg_tag
 }
 
 rand() { awk -v max="$1" 'BEGIN {srand(); print int(max*rand()+1)}'; }
 
 load() {
+    for b in curl; do
+        have "$b" || error "'$b' is required and not found"
+    done
+
     wrap=$DFLT_WRAP
     random=$DFLT_RANDOM
 
@@ -109,20 +109,13 @@ load() {
     id=$(rand $$)
     set_headers "$id"
 
-    fifo=$(mktemp --tmpdir -u webdrop.XXXXXX)
-    trap 'rm -f "$fifo"; trap - EXIT; exit' EXIT INT HUP TERM
-    mkfifo -m 600 "$fifo"
-
     curl -s "$url$id_header" >/dev/null
-    curl -s "$url$hash_header$(<&0 tee "$fifo" | md5sum | cut -d' ' -f1)" >/dev/null &
-    for line in $(base64 -w"$wrap" "$fifo"); do
+    for line in $(mcrypt | base64 -w"$wrap"); do
         curl -s "$url$msg_header$line" >/dev/null
         [ "$random" -gt 0 ] && sleep $(rand "$random")
     done
 
     printf 'Message loaded. ID = %s\n' "$id"
-
-    rm "$fifo"
 }
 
 unload() {
@@ -149,6 +142,10 @@ unload() {
 
     # If $log contains a colon, then it is a remote logfile
     if [ "${log#*:}" != "$log" ]; then
+        for b in mktemp scp ssh; do
+            have "$b" || error "'$b' is required and not found"
+        done
+
         remote=yes
         host=${log%%:*}
         remote_log=${log#*:}
@@ -156,7 +153,7 @@ unload() {
         log=$(mktemp --tmpdir webdrop.XXXXXXXX)
         trap 'rm -f "$log"; trap - EXIT; exit' EXIT INT HUP TERM
 
-        scp -P "$port" "$host:$remote_log" "$log"
+        scp -vP "$port" "$host:$remote_log" "$log"
 
     # otherwise it's local
     else
@@ -169,13 +166,10 @@ unload() {
     for id in $(grep "GET /$id_header[[:digit:]][[:digit:]]* " "$log" | cut -d' ' -f7 | sed "s/.*$id_header//"); do
         set_headers "$id"
 
-        # Print message id, hash and contents
-        printf 'id = %s, hash = %s\n' "$id" "$(grep "$hash_header" "$log" | cut -d' ' -f7 | sed "s/.*$hash_header//")"
-        grep "GET /$msg_header" "$log" | cut -d' ' -f7 | sed "s/.*$msg_header//" | base64 -d > "$dir/$id.msg"
+        # Print message id and contents
+        printf 'id = %s\n' "$id"
+        grep "GET /$msg_header" "$log" | cut -d' ' -f7 | sed "s/.*$msg_header//" | base64 -d |  mcrypt -d > "$dir/$id.msg"
 
-        # Delete message from log
-        sed "/GET \/$id_header/d" "$log" > "$logtmp"; cat "$logtmp" > "$log"
-        rm "$logtmp"
     done
 
     # Clean up
@@ -187,7 +181,7 @@ unload() {
 
 # Main {{{1
 #
-for b in curl mktemp; do
+for b in base64 mcrypt; do
     have "$b" || error "'$b' is required and not found"
 done
 
