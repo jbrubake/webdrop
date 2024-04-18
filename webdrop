@@ -109,7 +109,7 @@ load() {
     id=$(rand $$)
     set_headers "$id"
 
-    fifo=$(mktemp -u webdrop.XXXXXX)
+    fifo=$(mktemp --tmpdir -u webdrop.XXXXXX)
     trap 'rm -f "$fifo"; trap - EXIT; exit' EXIT INT HUP TERM
     mkfifo -m 600 "$fifo"
 
@@ -145,7 +145,7 @@ unload() {
     fi
     shift
 
-    logtmp=$(mktemp webdrop.XXXXXXXX)
+    logtmp=$(mktemp --tmpdir webdrop.XXXXXXXX)
     trap 'rm -f "$logtmp"; trap - EXIT; exit' EXIT INT HUP TERM
 
     # Find all message ids
