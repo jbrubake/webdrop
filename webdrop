@@ -210,11 +210,15 @@ unload() {
     # Find all message ids
     set_headers ""
 
-    for id in $(grep "GET /$id_header[[:digit:]][[:digit:]]* " "$log" | cut -d' ' -f7 | sed "s/.*$id_header//"); do
+    for id in $(grep "GET /$id_header[[:digit:]][[:digit:]]* " "$log" |
+                    cut -d' ' -f7 |
+                    sed "s/.*$id_header//"); do
         set_headers "$id"
 
         # Get filename
-        file=$(grep "$filename_header" "$log" | cut -d' ' -f7 | sed "s/.*$filename_header//")
+        file=$(grep "$filename_header" "$log" |
+                   cut -d' ' -f7 |
+                   sed "s/.*$filename_header//")
 
         # Print filename and id
         printf '%s (id = %s)\n' "$file" "$id"
@@ -225,7 +229,11 @@ unload() {
             file=$(basename "$file")
         fi
         # Get and save file contents
-        grep "GET /$msg_header" "$log" | cut -d' ' -f7 | sed "s/.*$msg_header//" | base64 -d |  mcrypt -qd > "$dir/$file"
+        grep "GET /$msg_header" "$log" |
+            cut -d' ' -f7 |
+            sed "s/.*$msg_header//" |
+            base64 -d |
+            mcrypt -qd > "$dir/$file"
 
     done
 
