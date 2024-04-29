@@ -42,6 +42,9 @@ chunks (Default is no delay).
 
 `-d [DIRECTORY]` Save extracted files to DIRECTORY (Default = .).
 
+**NOTE:** `sudo(1)` must be installed on the remote webserver in order to delete
+retrieved messages from the logs.
+
 # Examples
 
 `webdrop 192.168.0.1 /etc/shadow`
