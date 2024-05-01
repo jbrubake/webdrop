@@ -234,7 +234,7 @@ unload() {
                    sed "s/.*$filename_header//")
 
         # Print filename and id
-        printf '%s (id = %s)\n' "$file" "$id"
+        printf 'Downloading %s (id = %s) to %s\n' "$file" "$id" "$(basename "$file")"
         # Get a usable filename
         if [ "$file" = '/dev/stdin' ]; then
             file=stdin
