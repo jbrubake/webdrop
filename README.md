@@ -76,6 +76,14 @@ Extract messages from `/var/log/nginx/access.log` on `localhost`.
 
 `webdrop` requires [mcrypt](http://mcrypt.sourceforcge.net).
 
+# Webserver Configuration
+
+When running `webdrop unload`, the user that accesses the webserver must be able
+to read and write the server log. This will likely require changing permissions
+on the file and/or adding the user to a certain group. The exact commands
+necessary depend on both the webserver used and your specific requirements but
+some examples are given in [webserver-setup.md](webserver-setup.md).
+
 # See Also
 
 [mcrypt(1)](http://mcrypt.sourceforge.net)
