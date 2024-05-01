@@ -26,6 +26,8 @@ MSG_TAG_DFLT=?msg=
 FILENAME_TAG_DFLT=?name=
 DFLT_WRAP=76
 DFLT_RANDOM=0
+SSH_CONFIG_DFLT=
+SSH_KEY_DFLT=
 
 # Documentation {{{1
 #
@@ -62,14 +64,16 @@ EOF
 
 print_help_unload() {
     cat <<EOF
-Usage: $PROGNAME unload [OPTION] [HOST:]LOGFILE
-Unload all messages stored at [HOST:]LOGFILE.
+Usage: $PROGNAME unload [OPTION] [[USER@]HOST:]LOGFILE
+Unload all messages stored at [[USER@]HOST:]LOGFILE.
 
 If HOST is empty, LOGFILE will be accessed from the local host. Otherwise,
 HOST is used as the remote SSH server host (including the user if needed).
 
 Options:
- -p [PORT]      use PORT to access ssh (Default = 22)
+ -i [IDENTITY]  use IDENTITY as the private key to authenticate to HOST
+ -F [CONFIG]    specifies an alternative SSH configuration file
+ -p [PORT]      connect to HOST on PORT
  -d [DIRECTORY] save extracted files to DIRECTORY (Default = .)
  -v             display version info and exit
  -h             display this help and exit
@@ -167,9 +171,14 @@ load() {
 
 unload() {
     dir=.
-    port=22
-    while getopts ':p:d:h' opt; do
+    port=
+    ssh_config=$SSH_CONFIG_DFLT
+    ssh_key=$SSH_KEY_DFLT
+
+    while getopts ':F:i:p:d:h' opt; do
         case $opt in
+            F) ssh_config=$OPTARG ;;
+            i) ssh_key=$OPTARG ;;
             p) port=$OPTARG ;;
             d) dir=$OPTARG ;;
             h|?) print_help_unload; exit ;;
@@ -200,7 +209,11 @@ unload() {
         log=$(mktemp --tmpdir webdrop.XXXXXXXX)
         trap 'rm -f "$log"; trap - EXIT; exit' EXIT INT HUP TERM
 
-        scp -qP "$port" "$host:$remote_log" "$log"
+        scp -q \
+            ${port:+-P "$port"} \
+            ${ssh_config:+-F "$ssh_config"} \
+            ${ssh_key:+-i "$ssh_key"} \
+            "$host:$remote_log" "$log"
 
     # otherwise it's local
     else
@@ -239,7 +252,10 @@ unload() {
 
     # Clean up
     case $remote in
-        yes) ssh -p "$port" "$host" ": | sudo tee $remote_log" ;;
+        yes) ssh ${port:+-p "$port"} \
+                 ${ssh_config:+-F "$ssh_config"} \
+                 ${ssh_key:+-i "$ssh_key"} \
+                 "$host" "> $remote_log" ;;
         no)  > "$log" ;;
     esac
 }

@@ -6,7 +6,7 @@ webrop - use [CurlyTP](https://miscdotgeek.com/curlytp-every-web-server-is-a-dea
 
 ```
 webdrop [OPTION] load URL [FILE ...]
-webdrop [OPTION] unload [HOST:]LOGFILE
+webdrop [OPTION] unload [[USER@]HOST:]LOGFILE
 ```
 
 # Description
@@ -18,7 +18,7 @@ to send encrypted messages.
 the webserver running on URL. `stdin` will be read if no FILEs are given or if
 one of the FILEs is `-`.
 
-`webdrop unload [HOST:]LOGFILE` will download the webserver logfile at
+`webdrop unload [[USER@]HOST:]LOGFILE` will download the webserver logfile at
 HOST:LOGFILE using `scp` and then extract each FILE currently in the log. Once
 all FILEs are extracted, the remote log is wiped. If only LOGFILE is given,
 `webdrop` will access LOGFILE on `localhost`.
@@ -38,12 +38,17 @@ chunks (Default is no delay).
 
 ## unload command
 
-`-p [PORT]` Use PORT to access ssh (Default = 22).
+`-i [IDENTITY]` use IDENTITY as the private key to authenticate to HOST.
 
-`-d [DIRECTORY]` Save extracted files to DIRECTORY (Default = .).
+`-F [CONFIG]` specifies an alternative SSH configuration file.
 
-**NOTE:** `sudo(1)` must be installed on the remote webserver in order to delete
-retrieved messages from the logs.
+`-p [PORT]` connect to HOST on PORT.
+
+`-d [DIRECTORY]` save extracted files to DIRECTORY (Default = .).
+
+`-v` display version info and exit.
+
+`-h` display this help and exit.
 
 # Examples
 
